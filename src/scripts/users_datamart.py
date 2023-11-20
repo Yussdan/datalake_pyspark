@@ -96,25 +96,19 @@ def main():
     def user_home(message_city):
         return message_city \
             .select(F.col('event.message_from').alias('user_id'), F.col('city').alias('home_city'), F.col('date')) \
-            .orderBy('user_id', 'date') \
-            .withColumn('prev_date_message', F.lag('date').over(Window.orderBy('date').partitionBy('user_id', 'home_city'))) \
-            .withColumn('date_diff', F.datediff('date', 'prev_date_message')) \
-            .filter(F.col('date_diff') == 1) \
-            .withColumn('count_day_message', F.row_number().over(Window.orderBy(F.desc('date')).partitionBy('user_id', 'home_city'))) \
-            .groupBy('user_id', 'home_city', 'date') \
-            .agg(F.max('count_day_message').alias('max_count_date')) \
-            .filter(F.col('max_count_date') >= 26) \
-            .withColumn('max_date', F.row_number().over(Window.orderBy(F.desc('date')).partitionBy('user_id'))) \
-            .filter(F.col('max_date') == 1) \
-            .drop('date', 'max_count_date', 'max_date')
-
+            .withColumn('prev_city', F.lag('city').over(Window.partitionBy('user_id').orderBy('date'))) \
+            .filter((F.col('prev_city').isNull()) | (F.col('prev_city') != F.col('city'))) \
+            .withColumn('prev_date_message', F.lag('date').over(Window.partitionBy('user_id').orderBy('date'))) \
+            .withColumn('date_diff', F.datediff('date', 'prev_date_message'))\
+            .filter(F.col('date_diff')>=27)\
+            .drop('date_diff','prev_date_message','prev_city')
+            
 
 
     def travel_array(message_city):
         return message_city \
-            .select(F.col("event.message_from").alias('user_id'), F.col('city')) \
-            .orderBy('user_id') \
-            .withColumn('prev_city', F.lag('city').over(Window.partitionBy('user_id').orderBy('city'))) \
+            .select(F.col("event.message_from").alias('user_id'), F.col('city'),F.col('date')) \
+            .withColumn('prev_city', F.lag('city').over(Window.partitionBy('user_id').orderBy('date'))) \
             .filter((F.col('prev_city').isNull()) | (F.col('prev_city') != F.col('city'))) \
             .groupBy("user_id") \
             .agg(
